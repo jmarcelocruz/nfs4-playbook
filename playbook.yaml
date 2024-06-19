@@ -1,0 +1,42 @@
+- name: NFSv4 Playbook
+  hosts: localhost
+  tasks:
+  - name: Install NFS server packages
+    become: true
+    ansible.builtin.dnf:
+      name:
+      - nfs-utils
+  - name: Disable NFSv3 in /etc/nfs.conf
+    become: true
+    ansible.builtin.lineinfile:
+      line: vers3=n
+      path: /etc/nfs.conf
+      regexp: ^(# )?vers3=.*$
+  - name: Mask NFSv3-related services
+    become: true
+    ansible.builtin.systemd_service:
+      name: "{{ item }}"
+      masked: true
+      state: stopped
+    loop:
+    - rpc-statd
+    - rpcbind
+    - rpcbind.socket
+  - name: Create NFS root directory under srv/
+    become: true
+    ansible.builtin.file:
+      path: /srv/nfs4
+      state: directory
+  - name: Open NFSv4 port
+    become: true
+    ansible.posix.firewalld:
+      service: nfs
+      state: enabled
+      permanent: true
+      immediate: true
+  - name: Enable & start NFS server service
+    become: true
+    ansible.builtin.systemd_service:
+      name: nfs-server
+      enabled: true
+      state: started
